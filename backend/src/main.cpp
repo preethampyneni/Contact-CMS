@@ -70,48 +70,105 @@ int main() {
     });
 
     // --------------------------------------------------
-    // 2. GET ALL CONTACTS ENDPOINT
+    // 2. CONTACTS COLLECTION ENDPOINTS (GET, POST, OPTIONS /api/contacts)
     // --------------------------------------------------
-    CROW_ROUTE(app, "/api/contacts").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/contacts").methods(crow::HTTPMethod::GET, crow::HTTPMethod::POST, crow::HTTPMethod::OPTIONS)
     ([&contactService](const crow::request& req) {
         crow::response res;
         addCorsHeaders(res);
         res.set_header("Content-Type", "application/json");
-        try {
-            std::vector<Contact> contacts = contactService.getAllContacts();
-            nlohmann::json contactArr = nlohmann::json::array();
-            for (const auto& c : contacts) {
-                contactArr.push_back(c.toJson());
+
+        if (req.method == crow::HTTPMethod::OPTIONS) {
+            res.code = 200;
+            return res;
+        }
+
+        if (req.method == crow::HTTPMethod::GET) {
+            try {
+                std::vector<Contact> contacts = contactService.getAllContacts();
+                nlohmann::json contactArr = nlohmann::json::array();
+                for (const auto& c : contacts) {
+                    contactArr.push_back(c.toJson());
+                }
+
+                nlohmann::json responseJson = {
+                    {"success", true},
+                    {"count", contacts.size()},
+                    {"contacts", contactArr}
+                };
+                res.code = 200;
+                res.write(responseJson.dump(4));
+            } catch (const std::exception& e) {
+                res.code = 500;
+                nlohmann::json errJson = {
+                    {"success", false},
+                    {"message", std::string("Internal server error: ") + e.what()}
+                };
+                res.write(errJson.dump());
+            }
+            return res;
+        }
+
+        if (req.method == crow::HTTPMethod::POST) {
+            nlohmann::json body;
+            try {
+                body = nlohmann::json::parse(req.body);
+            } catch (...) {
+                res.code = 400;
+                nlohmann::json errJson = {
+                    {"success", false},
+                    {"message", "Malformed JSON payload"}
+                };
+                res.write(errJson.dump(4));
+                return res;
             }
 
-            nlohmann::json responseJson = {
-                {"success", true},
-                {"count", contacts.size()},
-                {"contacts", contactArr}
-            };
-            res.code = 200;
-            res.write(responseJson.dump(4));
-        } catch (const std::exception& e) {
-            res.code = 500;
-            nlohmann::json errJson = {
-                {"success", false},
-                {"message", std::string("Internal server error: ") + e.what()}
-            };
-            res.write(errJson.dump());
+            Contact newContact = Contact::fromJson(body);
+            std::string errorMessage;
+            Contact createdContact;
+
+            if (contactService.addContact(newContact, errorMessage, createdContact)) {
+                res.code = 201; // Created
+                nlohmann::json responseJson = {
+                    {"success", true},
+                    {"message", "Contact added successfully"},
+                    {"contact", createdContact.toJson()}
+                };
+                res.write(responseJson.dump(4));
+            } else {
+                if (errorMessage.find("already exists") != std::string::npos) {
+                    res.code = 409; // Conflict
+                } else {
+                    res.code = 400; // Bad Request
+                }
+                nlohmann::json errJson = {
+                    {"success", false},
+                    {"message", errorMessage}
+                };
+                res.write(errJson.dump(4));
+            }
+            return res;
         }
+
+        res.code = 405;
         return res;
     });
 
     // --------------------------------------------------
     // 3. SEARCH BY NAME ENDPOINT (GET /api/contacts/search/name?name=...)
     // --------------------------------------------------
-    CROW_ROUTE(app, "/api/contacts/search/name").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/contacts/search/name").methods(crow::HTTPMethod::GET, crow::HTTPMethod::OPTIONS)
     ([&contactService](const crow::request& req) {
         crow::response res;
         addCorsHeaders(res);
         res.set_header("Content-Type", "application/json");
+
+        if (req.method == crow::HTTPMethod::OPTIONS) {
+            res.code = 200;
+            return res;
+        }
+
         std::string query = req.url_params.get("name") ? req.url_params.get("name") : "";
-        
         std::vector<Contact> matchingContacts = contactService.searchByName(query);
         nlohmann::json contactArr = nlohmann::json::array();
         for (const auto& c : matchingContacts) {
@@ -132,13 +189,18 @@ int main() {
     // --------------------------------------------------
     // 4. SEARCH BY PHONE ENDPOINT (GET /api/contacts/search/phone?phone=...)
     // --------------------------------------------------
-    CROW_ROUTE(app, "/api/contacts/search/phone").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/contacts/search/phone").methods(crow::HTTPMethod::GET, crow::HTTPMethod::OPTIONS)
     ([&contactService](const crow::request& req) {
         crow::response res;
         addCorsHeaders(res);
         res.set_header("Content-Type", "application/json");
-        std::string query = req.url_params.get("phone") ? req.url_params.get("phone") : "";
 
+        if (req.method == crow::HTTPMethod::OPTIONS) {
+            res.code = 200;
+            return res;
+        }
+
+        std::string query = req.url_params.get("phone") ? req.url_params.get("phone") : "";
         std::vector<Contact> matchingContacts = contactService.searchByPhone(query);
         nlohmann::json contactArr = nlohmann::json::array();
         for (const auto& c : matchingContacts) {
@@ -159,11 +221,17 @@ int main() {
     // --------------------------------------------------
     // 5. SORT BY NAME ENDPOINT (GET /api/contacts/sort/name)
     // --------------------------------------------------
-    CROW_ROUTE(app, "/api/contacts/sort/name").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/contacts/sort/name").methods(crow::HTTPMethod::GET, crow::HTTPMethod::OPTIONS)
     ([&contactService](const crow::request& req) {
         crow::response res;
         addCorsHeaders(res);
         res.set_header("Content-Type", "application/json");
+
+        if (req.method == crow::HTTPMethod::OPTIONS) {
+            res.code = 200;
+            return res;
+        }
+
         std::vector<Contact> contacts = contactService.getAllContacts();
         contactService.sortContactsAlphabetically(contacts);
 
@@ -183,157 +251,104 @@ int main() {
     });
 
     // --------------------------------------------------
-    // 6. GET SINGLE CONTACT ENDPOINT (GET /api/contacts/:id)
+    // 6. SINGLE CONTACT ITEM ENDPOINTS (GET, PUT, DELETE, OPTIONS /api/contacts/:id)
     // --------------------------------------------------
-    CROW_ROUTE(app, "/api/contacts/<string>").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/contacts/<string>")
+    .methods(crow::HTTPMethod::GET, crow::HTTPMethod::PUT, crow::HTTPMethod::DELETE, crow::HTTPMethod::OPTIONS)
     ([&contactService](const crow::request& req, std::string id) {
         crow::response res;
         addCorsHeaders(res);
         res.set_header("Content-Type", "application/json");
-        Contact c;
-        if (contactService.getContactById(id, c)) {
-            nlohmann::json responseJson = {
-                {"success", true},
-                {"contact", c.toJson()}
-            };
+
+        if (req.method == crow::HTTPMethod::OPTIONS) {
             res.code = 200;
-            res.write(responseJson.dump(4));
-        } else {
-            res.code = 404;
-            nlohmann::json errJson = {
-                {"success", false},
-                {"message", "Contact not found"}
-            };
-            res.write(errJson.dump(4));
-        }
-        return res;
-    });
-
-    // --------------------------------------------------
-    // 7. ADD CONTACT ENDPOINT (POST /api/contacts)
-    // --------------------------------------------------
-    CROW_ROUTE(app, "/api/contacts").methods(crow::HTTPMethod::POST)
-    ([&contactService](const crow::request& req) {
-        crow::response res;
-        addCorsHeaders(res);
-        res.set_header("Content-Type", "application/json");
-
-        nlohmann::json body;
-        try {
-            body = nlohmann::json::parse(req.body);
-        } catch (...) {
-            res.code = 400;
-            nlohmann::json errJson = {
-                {"success", false},
-                {"message", "Malformed JSON payload"}
-            };
-            res.write(errJson.dump(4));
             return res;
         }
 
-        Contact newContact = Contact::fromJson(body);
-        std::string errorMessage;
-        Contact createdContact;
-
-        if (contactService.addContact(newContact, errorMessage, createdContact)) {
-            res.code = 201; // Created
-            nlohmann::json responseJson = {
-                {"success", true},
-                {"message", "Contact added successfully"},
-                {"contact", createdContact.toJson()}
-            };
-            res.write(responseJson.dump(4));
-        } else {
-            if (errorMessage.find("already exists") != std::string::npos) {
-                res.code = 409; // Conflict
+        if (req.method == crow::HTTPMethod::GET) {
+            Contact c;
+            if (contactService.getContactById(id, c)) {
+                nlohmann::json responseJson = {
+                    {"success", true},
+                    {"contact", c.toJson()}
+                };
+                res.code = 200;
+                res.write(responseJson.dump(4));
             } else {
-                res.code = 400; // Bad Request
-            }
-            nlohmann::json errJson = {
-                {"success", false},
-                {"message", errorMessage}
-            };
-            res.write(errJson.dump(4));
-        }
-        return res;
-    });
-
-    // --------------------------------------------------
-    // 8. UPDATE CONTACT ENDPOINT (PUT /api/contacts/:id)
-    // --------------------------------------------------
-    CROW_ROUTE(app, "/api/contacts/<string>").methods(crow::HTTPMethod::PUT)
-    ([&contactService](const crow::request& req, std::string id) {
-        crow::response res;
-        addCorsHeaders(res);
-        res.set_header("Content-Type", "application/json");
-
-        nlohmann::json body;
-        try {
-            body = nlohmann::json::parse(req.body);
-        } catch (...) {
-            res.code = 400;
-            nlohmann::json errJson = {
-                {"success", false},
-                {"message", "Malformed JSON payload"}
-            };
-            res.write(errJson.dump(4));
-            return res;
-        }
-
-        Contact updatedInfo = Contact::fromJson(body);
-        std::string errorMessage;
-
-        if (contactService.updateContact(id, updatedInfo, errorMessage)) {
-            Contact refreshedContact;
-            contactService.getContactById(id, refreshedContact);
-            res.code = 200;
-            nlohmann::json responseJson = {
-                {"success", true},
-                {"message", "Contact updated successfully"},
-                {"contact", refreshedContact.toJson()}
-            };
-            res.write(responseJson.dump(4));
-        } else {
-            if (errorMessage.find("not found") != std::string::npos) {
                 res.code = 404;
-            } else if (errorMessage.find("already exists") != std::string::npos) {
-                res.code = 409;
-            } else {
-                res.code = 400;
+                nlohmann::json errJson = {
+                    {"success", false},
+                    {"message", "Contact not found"}
+                };
+                res.write(errJson.dump(4));
             }
-            nlohmann::json errJson = {
-                {"success", false},
-                {"message", errorMessage}
-            };
-            res.write(errJson.dump(4));
+            return res;
         }
-        return res;
-    });
 
-    // --------------------------------------------------
-    // 9. DELETE CONTACT ENDPOINT (DELETE /api/contacts/:id)
-    // --------------------------------------------------
-    CROW_ROUTE(app, "/api/contacts/<string>").methods(crow::HTTPMethod::DELETE)
-    ([&contactService](const crow::request& req, std::string id) {
-        crow::response res;
-        addCorsHeaders(res);
-        res.set_header("Content-Type", "application/json");
+        if (req.method == crow::HTTPMethod::PUT) {
+            nlohmann::json body;
+            try {
+                body = nlohmann::json::parse(req.body);
+            } catch (...) {
+                res.code = 400;
+                nlohmann::json errJson = {
+                    {"success", false},
+                    {"message", "Malformed JSON payload"}
+                };
+                res.write(errJson.dump(4));
+                return res;
+            }
 
-        if (contactService.deleteContact(id)) {
-            res.code = 200;
-            nlohmann::json responseJson = {
-                {"success", true},
-                {"message", "Contact deleted successfully"}
-            };
-            res.write(responseJson.dump(4));
-        } else {
-            res.code = 404;
-            nlohmann::json errJson = {
-                {"success", false},
-                {"message", "Contact not found with ID: " + id}
-            };
-            res.write(errJson.dump(4));
+            Contact updatedInfo = Contact::fromJson(body);
+            std::string errorMessage;
+
+            if (contactService.updateContact(id, updatedInfo, errorMessage)) {
+                Contact refreshedContact;
+                contactService.getContactById(id, refreshedContact);
+                res.code = 200;
+                nlohmann::json responseJson = {
+                    {"success", true},
+                    {"message", "Contact updated successfully"},
+                    {"contact", refreshedContact.toJson()}
+                };
+                res.write(responseJson.dump(4));
+            } else {
+                if (errorMessage.find("not found") != std::string::npos) {
+                    res.code = 404;
+                } else if (errorMessage.find("already exists") != std::string::npos) {
+                    res.code = 409;
+                } else {
+                    res.code = 400;
+                }
+                nlohmann::json errJson = {
+                    {"success", false},
+                    {"message", errorMessage}
+                };
+                res.write(errJson.dump(4));
+            }
+            return res;
         }
+
+        if (req.method == crow::HTTPMethod::DELETE) {
+            if (contactService.deleteContact(id)) {
+                res.code = 200;
+                nlohmann::json responseJson = {
+                    {"success", true},
+                    {"message", "Contact deleted successfully"}
+                };
+                res.write(responseJson.dump(4));
+            } else {
+                res.code = 404;
+                nlohmann::json errJson = {
+                    {"success", false},
+                    {"message", "Contact not found with ID: " + id}
+                };
+                res.write(errJson.dump(4));
+            }
+            return res;
+        }
+
+        res.code = 405;
         return res;
     });
 

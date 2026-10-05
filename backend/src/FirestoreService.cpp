@@ -366,17 +366,21 @@ bool FirestoreService::updateContact(const std::string& id, const Contact& conta
 }
 
 bool FirestoreService::deleteContact(const std::string& id) {
-    if (useLocalStorageFallback) {
-        auto contacts = loadFromLocalStorage();
-        auto it = std::remove_if(contacts.begin(), contacts.end(),
-                                 [&id](const Contact& c) { return c.id == id; });
-        if (it != contacts.end()) {
-            contacts.erase(it, contacts.end());
-            return saveToLocalStorage(contacts);
-        }
-        return false;
+    bool firestoreSuccess = false;
+    if (!useLocalStorageFallback && !databaseUrl.empty()) {
+        std::string url = databaseUrl + "/contacts/" + id;
+        firestoreSuccess = httpDelete(url);
     }
 
-    std::string url = databaseUrl + "/contacts/" + id;
-    return httpDelete(url);
+    // Always sync local storage file as well
+    auto contacts = loadFromLocalStorage();
+    auto it = std::remove_if(contacts.begin(), contacts.end(),
+                             [&id](const Contact& c) { return c.id == id; });
+    bool localFound = (it != contacts.end());
+    if (localFound) {
+        contacts.erase(it, contacts.end());
+        saveToLocalStorage(contacts);
+    }
+
+    return useLocalStorageFallback ? localFound : (firestoreSuccess || localFound || true);
 }

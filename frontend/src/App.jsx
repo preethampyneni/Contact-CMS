@@ -177,6 +177,9 @@ function App() {
       const res = await contactApi.deleteContact(deletingContact.id);
       if (res.success) {
         showToast('Contact deleted successfully', 'success');
+        if (viewingContact && viewingContact.id === deletingContact.id) {
+          setViewingContact(null);
+        }
         setDeletingContact(null);
         fetchContacts();
       } else {

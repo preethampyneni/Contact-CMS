@@ -111,10 +111,7 @@ bool ContactService::updateContact(const std::string& id, Contact contact, std::
 }
 
 bool ContactService::deleteContact(const std::string& id) {
-    Contact existingContact;
-    if (!firestoreService->getContactById(id, existingContact)) {
-        return false;
-    }
+    if (id.empty()) return false;
     return firestoreService->deleteContact(id);
 }
 

@@ -1,0 +1,42 @@
+[
+    {
+        "address": "Bangalore",
+        "category": "Personal",
+        "createdAt": "2026-10-02T11:30:00Z",
+        "email": "preetham@example.com",
+        "id": "contact_002",
+        "name": "Preetham Reddy",
+        "phone": "9876543211",
+        "updatedAt": "2026-10-02T11:30:00Z"
+    },
+    {
+        "address": "Delhi",
+        "category": "College",
+        "createdAt": "2026-10-03T14:15:00Z",
+        "email": "ananya@example.com",
+        "id": "contact_003",
+        "name": "Ananya Verma",
+        "phone": "9876543212",
+        "updatedAt": "2026-10-03T14:15:00Z"
+    },
+    {
+        "address": "Chennai",
+        "category": "Work",
+        "createdAt": "2026-10-04T09:00:00Z",
+        "email": "ravi@example.com",
+        "id": "contact_004",
+        "name": "Ravi Teja",
+        "phone": "9876543213",
+        "updatedAt": "2026-10-04T09:00:00Z"
+    },
+    {
+        "address": "Mumbai",
+        "category": "Family",
+        "createdAt": "2026-10-05T16:45:00Z",
+        "email": "zoya@example.com",
+        "id": "contact_005",
+        "name": "Zoya Khan",
+        "phone": "9876543214",
+        "updatedAt": "2026-10-05T16:45:00Z"
+    }
+]
