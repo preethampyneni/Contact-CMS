@@ -1,15 +1,5 @@
 [
     {
-        "address": "Bangalore",
-        "category": "Personal",
-        "createdAt": "2026-10-02T11:30:00Z",
-        "email": "preetham@example.com",
-        "id": "contact_002",
-        "name": "Preetham Reddy",
-        "phone": "9876543211",
-        "updatedAt": "2026-10-02T11:30:00Z"
-    },
-    {
         "address": "Delhi",
         "category": "College",
         "createdAt": "2026-10-03T14:15:00Z",
