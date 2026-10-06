@@ -130,47 +130,48 @@ export const getContactById = async (id) => {
  * Add New Contact
  */
 export const addContact = async (contactData) => {
+  let createdContact = null;
   try {
     const response = await api.post('/contacts', contactData);
-    if (response.data && response.data.success) return response.data;
+    if (response.data && response.data.success) {
+      createdContact = response.data.contact;
+    }
   } catch (err) {
     if (err.response && err.response.data && err.response.data.message) {
       return { success: false, message: err.response.data.message };
     }
   }
 
-  // Fallback storage execution
-  const localList = getLocalStore();
-  const phoneTrimmed = (contactData.phone || '').trim();
-  const duplicate = localList.find(c => (c.phone || '').trim() === phoneTrimmed);
-  if (duplicate) {
-    return { success: false, message: 'A contact with this phone number already exists' };
+  if (!createdContact) {
+    const now = new Date().toISOString();
+    createdContact = {
+      id: `contact_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      name: contactData.name || '',
+      phone: contactData.phone || '',
+      email: contactData.email || '',
+      address: contactData.address || '',
+      category: contactData.category || 'Personal',
+      createdAt: now,
+      updatedAt: now
+    };
   }
 
-  const now = new Date().toISOString();
-  const newContact = {
-    id: `contact_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-    name: contactData.name || '',
-    phone: contactData.phone || '',
-    email: contactData.email || '',
-    address: contactData.address || '',
-    category: contactData.category || 'Personal',
-    createdAt: now,
-    updatedAt: now
-  };
-
-  const updatedList = [newContact, ...localList];
+  const localList = getLocalStore();
+  const updatedList = [createdContact, ...localList.filter(c => c.id !== createdContact.id)];
   setLocalStore(updatedList);
-  return { success: true, message: 'Contact added successfully', contact: newContact };
+  return { success: true, message: 'Contact added successfully', contact: createdContact };
 };
 
 /**
  * Update Existing Contact
  */
 export const updateContact = async (id, contactData) => {
+  let updatedContact = null;
   try {
     const response = await api.put(`/contacts/${id}`, contactData);
-    if (response.data && response.data.success) return response.data;
+    if (response.data && response.data.success) {
+      updatedContact = response.data.contact;
+    }
   } catch (err) {
     if (err.response && err.response.data && err.response.data.message) {
       return { success: false, message: err.response.data.message };
@@ -179,27 +180,27 @@ export const updateContact = async (id, contactData) => {
 
   const localList = getLocalStore();
   const idx = localList.findIndex(c => c.id === id);
-  if (idx === -1) return { success: false, message: 'Contact not found' };
-
-  const phoneTrimmed = (contactData.phone || '').trim();
-  const duplicate = localList.find(c => c.id !== id && (c.phone || '').trim() === phoneTrimmed);
-  if (duplicate) {
-    return { success: false, message: 'A contact with this phone number already exists' };
+  if (idx !== -1 || updatedContact) {
+    if (!updatedContact) {
+      updatedContact = {
+        ...localList[idx],
+        name: contactData.name || localList[idx].name,
+        phone: contactData.phone || localList[idx].phone,
+        email: contactData.email || localList[idx].email,
+        address: contactData.address || localList[idx].address,
+        category: contactData.category || localList[idx].category,
+        updatedAt: new Date().toISOString()
+      };
+      localList[idx] = updatedContact;
+    } else {
+      if (idx !== -1) localList[idx] = updatedContact;
+      else localList.unshift(updatedContact);
+    }
+    setLocalStore(localList);
+    return { success: true, message: 'Contact updated successfully', contact: updatedContact };
   }
 
-  const updatedContact = {
-    ...localList[idx],
-    name: contactData.name || localList[idx].name,
-    phone: contactData.phone || localList[idx].phone,
-    email: contactData.email || localList[idx].email,
-    address: contactData.address || localList[idx].address,
-    category: contactData.category || localList[idx].category,
-    updatedAt: new Date().toISOString()
-  };
-
-  localList[idx] = updatedContact;
-  setLocalStore(localList);
-  return { success: true, message: 'Contact updated successfully', contact: updatedContact };
+  return { success: false, message: 'Contact not found' };
 };
 
 /**
@@ -207,8 +208,7 @@ export const updateContact = async (id, contactData) => {
  */
 export const deleteContact = async (id) => {
   try {
-    const response = await api.delete(`/contacts/${id}`);
-    if (response.data && response.data.success) return response.data;
+    await api.delete(`/contacts/${id}`);
   } catch (err) {}
 
   const localList = getLocalStore();

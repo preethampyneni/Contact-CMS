@@ -187,7 +187,7 @@ int main() {
     });
 
     // --------------------------------------------------
-    // 4. SEARCH BY PHONE ENDPOINT (GET /api/contacts/search/phone?phone=...)
+    // 4. SEARCH BY PHONE (GET /api/contacts/search/phone?phone=...)
     // --------------------------------------------------
     CROW_ROUTE(app, "/api/contacts/search/phone").methods(crow::HTTPMethod::GET, crow::HTTPMethod::OPTIONS)
     ([&contactService](const crow::request& req) {

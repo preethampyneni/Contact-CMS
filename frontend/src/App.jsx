@@ -133,10 +133,10 @@ function App() {
     setIsSubmitting(true);
     try {
       const res = await contactApi.addContact(formData);
-      if (res.success) {
+      if (res.success && res.contact) {
         showToast('Contact added successfully', 'success');
         setIsAddModalOpen(false);
-        fetchContacts();
+        setContacts(prev => [res.contact, ...prev.filter(c => c.id !== res.contact.id)]);
       } else {
         showToast(res.message || 'Failed to add contact', 'error');
       }
@@ -152,12 +152,13 @@ function App() {
   const handleUpdateContactSubmit = async (formData) => {
     if (!editingContact) return;
     setIsSubmitting(true);
+    const targetId = editingContact.id;
     try {
-      const res = await contactApi.updateContact(editingContact.id, formData);
-      if (res.success) {
+      const res = await contactApi.updateContact(targetId, formData);
+      if (res.success && res.contact) {
         showToast('Contact updated successfully', 'success');
         setEditingContact(null);
-        fetchContacts();
+        setContacts(prev => prev.map(c => c.id === targetId ? res.contact : c));
       } else {
         showToast(res.message || 'Failed to update contact', 'error');
       }
@@ -177,15 +178,15 @@ function App() {
     try {
       await contactApi.deleteContact(targetId);
     } catch (err) {
-      console.warn('Delete request completed with fallback handling:', err);
+      console.warn('Delete request completed:', err);
     } finally {
       showToast('Contact deleted successfully', 'success');
+      setContacts(prev => prev.filter(c => c.id !== targetId));
       if (viewingContact && viewingContact.id === targetId) {
         setViewingContact(null);
       }
       setDeletingContact(null);
       setIsSubmitting(false);
-      fetchContacts();
     }
   };
 
