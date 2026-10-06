@@ -39,10 +39,18 @@ const Dashboard = ({
     college: contacts.filter(c => c.category?.toLowerCase() === 'college').length,
   };
 
-  // Filter contacts by category dropdown if not "All"
-  const displayedContacts = categoryFilter === 'All'
-    ? contacts
-    : contacts.filter(c => c.category?.toLowerCase() === categoryFilter.toLowerCase());
+  // Filter contacts by category dropdown AND real-time search query
+  const displayedContacts = contacts.filter(c => {
+    const matchesCategory = categoryFilter === 'All' || c.category?.toLowerCase() === categoryFilter.toLowerCase();
+    const q = (searchQuery || '').trim().toLowerCase();
+    if (!q) return matchesCategory;
+
+    const nameMatch = (c.name || '').toLowerCase().includes(q);
+    const phoneMatch = (c.phone || '').includes(q);
+    const matchesSearch = searchMode === 'name' ? nameMatch : phoneMatch;
+
+    return matchesCategory && (matchesSearch || nameMatch || phoneMatch);
+  });
 
   return (
     <div className="animate-fade-in">

@@ -10,7 +10,7 @@ const api = axios.create({
   timeout: 4000,
 });
 
-// Seed contacts for offline / Vercel deployment fallback
+// Initial seed contacts
 const SEED_CONTACTS = [
   {
     id: 'contact_001',
@@ -98,17 +98,24 @@ export const checkHealth = async () => {
 };
 
 /**
- * Get All Contacts
+ * Get All Contacts (Merges server data & local storage to preserve user additions across page refreshes)
  */
 export const getContacts = async () => {
+  const localList = getLocalStore();
   try {
     const response = await api.get('/contacts');
-    if (response.data && response.data.success) {
-      setLocalStore(response.data.contacts || []);
-      return response.data;
+    if (response.data && response.data.success && Array.isArray(response.data.contacts)) {
+      const serverContacts = response.data.contacts;
+      const mergedMap = new Map();
+      serverContacts.forEach(c => mergedMap.set(c.id, c));
+      localList.forEach(c => mergedMap.set(c.id, c)); // Preserve newly added local items!
+
+      const mergedList = Array.from(mergedMap.values());
+      setLocalStore(mergedList);
+      return { success: true, count: mergedList.length, contacts: mergedList };
     }
   } catch (err) {}
-  const localList = getLocalStore();
+
   return { success: true, count: localList.length, contacts: localList };
 };
 
@@ -221,13 +228,15 @@ export const deleteContact = async (id) => {
  * Search Contacts by Name (Linear search O(n))
  */
 export const searchByName = async (name) => {
+  const query = (name || '').trim().toLowerCase();
   try {
     const response = await api.get(`/contacts/search/name?name=${encodeURIComponent(name)}`);
-    if (response.data && response.data.success) return response.data;
+    if (response.data && response.data.success && Array.isArray(response.data.contacts)) {
+      return response.data;
+    }
   } catch (err) {}
 
   const localList = getLocalStore();
-  const query = (name || '').trim().toLowerCase();
   if (!query) return { success: true, count: localList.length, contacts: localList };
 
   const matching = localList.filter(c => (c.name || '').toLowerCase().includes(query));
@@ -238,13 +247,15 @@ export const searchByName = async (name) => {
  * Search Contacts by Phone (Linear search O(n))
  */
 export const searchByPhone = async (phone) => {
+  const query = (phone || '').trim();
   try {
     const response = await api.get(`/contacts/search/phone?phone=${encodeURIComponent(phone)}`);
-    if (response.data && response.data.success) return response.data;
+    if (response.data && response.data.success && Array.isArray(response.data.contacts)) {
+      return response.data;
+    }
   } catch (err) {}
 
   const localList = getLocalStore();
-  const query = (phone || '').trim();
   if (!query) return { success: true, count: localList.length, contacts: localList };
 
   const matching = localList.filter(c => (c.phone || '').includes(query));
